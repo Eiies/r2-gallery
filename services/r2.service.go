@@ -22,7 +22,7 @@ func UploadToR2(file io.Reader, fileName string) (string, error) {
 		return "", err
 	}
 
-	url := fmt.Sprintf("%s/%s", os.Getenv("YOU"), fileName)
+	url := fmt.Sprintf("%s/%s", os.Getenv("DOMAIN_NAME"), fileName)
 	return url, nil
 }
 
