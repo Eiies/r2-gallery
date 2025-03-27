@@ -30,7 +30,8 @@ func UploadImage(c *gin.Context) {
 	// Get user from context
 	claims, exists := c.Get("user")
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		utils.LogError("Unauthorized", nil)
+		utils.SendError(c, http.StatusUnauthorized, "没有权限")
 		return
 	}
 
@@ -40,14 +41,14 @@ func UploadImage(c *gin.Context) {
 	// Get file from form
 	file, err := c.FormFile("image")
 	if err != nil {
-		utils.Error(c, http.StatusBadRequest, "No image provided")
+		utils.SendError(c, http.StatusBadRequest, "未提供图片")
 		return
 	}
 
 	// Get title from form
 	title := c.PostForm("title")
 	if title == "" {
-		utils.Error(c, http.StatusBadRequest, "Title is required")
+		utils.SendError(c, http.StatusBadRequest, "标题为必填项")
 		return
 	}
 
@@ -58,7 +59,7 @@ func UploadImage(c *gin.Context) {
 	// Open file
 	src, err := file.Open()
 	if err != nil {
-		utils.Error(c, http.StatusInternalServerError, "Failed to open file")
+		utils.SendError(c, http.StatusInternalServerError, "无法打开文件")
 		return
 	}
 	defer src.Close()
@@ -66,7 +67,8 @@ func UploadImage(c *gin.Context) {
 	// Upload to R2
 	url, err := services.UploadToR2(src, fileName)
 	if err != nil {
-		utils.Error(c, http.StatusBadRequest, "Failed to upload file")
+		utils.LogError("上传文件失败", err)
+		utils.SendError(c, http.StatusBadRequest, "上传文件失败")
 		return
 	}
 
@@ -83,12 +85,12 @@ func UploadImage(c *gin.Context) {
 	if err := config.DB.Create(&image).Error; err != nil {
 		// Try to delete from R2 if database save fails
 		_ = services.DeleteFromR2(fileName)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save image"})
+		utils.LogError("无法保存图像", err)
+		utils.SendError(c, http.StatusInternalServerError, "无法保存图像")
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{
-		"message": "Image uploaded successfully",
+	utils.SendSuccess(c, gin.H{
 		"image": ImageResponse{
 			ID:        image.ID,
 			FileName:  image.FileName,
@@ -98,7 +100,6 @@ func UploadImage(c *gin.Context) {
 			CreatedAt: image.CreatedAt,
 		},
 	})
-	// utils.Success(c, "Image uploaded successfully")
 }
 
 // ListImages returns all images for the current user

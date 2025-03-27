@@ -14,7 +14,7 @@ type Response struct {
 }
 
 // 统一的成功响应
-func Success(c *gin.Context, data any) {
+func SendSuccess(c *gin.Context, data any) {
 	c.JSON(http.StatusOK, Response{
 		Code:    0,
 		Message: "success",
@@ -23,7 +23,7 @@ func Success(c *gin.Context, data any) {
 }
 
 // 统一的错误响应
-func Error(c *gin.Context, code int, message string) {
+func SendError(c *gin.Context, code int, message string) {
 	c.JSON(code, Response{
 		Code:    code,
 		Message: message,

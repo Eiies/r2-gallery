@@ -3,6 +3,7 @@ package middleware
 import (
 	"net/http"
 	"os"
+	"r2-gallery/utils"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -13,18 +14,20 @@ func AuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		tokenString := c.GetHeader("Authorization")
 		if tokenString == "" || !strings.HasPrefix(tokenString, "Bearer ") {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+			utils.SendError(c, http.StatusUnauthorized, "Unauthorized")
 			c.Abort()
 			return
 		}
 
 		tokenString = strings.TrimPrefix(tokenString, "Bearer ")
 		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (any, error) {
-			return []byte(os.Getenv("JWT_SECRET")), nil
+			jwtSecret := []byte(os.Getenv("JWT_SECRET"))
+			return jwtSecret, nil
 		})
 
 		if err != nil || !token.Valid {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
+			utils.LogError("Invalid token", err)
+			utils.SendError(c, http.StatusUnauthorized, "Invalid token")
 			c.Abort()
 			return
 		}

@@ -5,6 +5,7 @@ import (
 	"r2-gallery/config"
 	"r2-gallery/models"
 	"r2-gallery/services"
+	"r2-gallery/utils"
 
 	"github.com/gin-gonic/gin"
 	"golang.org/x/crypto/bcrypt"
@@ -25,7 +26,8 @@ type LoginInput struct {
 func Register(c *gin.Context) {
 	var input RegisterInput
 	if err := c.ShouldBindJSON(&input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		utils.LogError("无法绑定 JSON", err)
+		utils.SendError(c, http.StatusBadRequest, "无法绑定 JSON")
 		return
 	}
 
@@ -33,14 +35,15 @@ func Register(c *gin.Context) {
 	var existingUser models.User
 	result := config.DB.Where("email = ?", input.Email).Or("username = ?", input.Username).First(&existingUser)
 	if result.RowsAffected > 0 {
-		c.JSON(http.StatusConflict, gin.H{"error": "User with this email or username already exists"})
+		utils.SendError(c, http.StatusConflict, "此电子邮件或用户名的用户已存在")
 		return
 	}
 
 	// Hash password
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(input.Password), bcrypt.DefaultCost)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to hash password"})
+		utils.LogError("无法对密码进行哈希处理", err)
+		utils.SendError(c, http.StatusInternalServerError, "无法对密码进行哈希处理")
 		return
 	}
 
@@ -72,25 +75,26 @@ func Login(c *gin.Context) {
 	var user models.User
 	result := config.DB.Where("email = ?", input.Email).First(&user)
 	if result.Error != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid email or password"})
+		utils.SendError(c, http.StatusUnauthorized, "无效的电子邮件或密码")
 		return
 	}
 
 	// Verify password
 	err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(input.Password))
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid email or password"})
+		utils.SendError(c, http.StatusUnauthorized, "无效的电子邮件或密码")
 		return
 	}
 
 	// Generate token
 	token, err := services.GenerateToken(user.ID, user.Role)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
+		utils.LogError("无法生成 Token", err)
+		utils.SendError(c, http.StatusInternalServerError, "无法生成 Token")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
+	utils.SendSuccess(c, gin.H{
 		"token": token,
 		"user": gin.H{
 			"id":       user.ID,
